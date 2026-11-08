@@ -20,13 +20,14 @@ class ProductAiTest extends TestCase
             ->assertRedirect(route('login'));
     }
 
-    public function test_authenticated_user_can_open_the_ai_catalog_page(): void
+    public function test_authenticated_user_can_open_the_product_creation_page(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get(route('products.ai-create'))
+            ->get(route('products.create'))
             ->assertOk()
-            ->assertSee('AI Instant Catalog Generator')
-            ->assertSee('Simpan ke Katalog POS');
+            ->assertSee('Buat Katalog Produk')
+            ->assertSee('Foto produk, kemasan, atau nota')
+            ->assertSee('Simpan katalog');
     }
 
     public function test_ai_generation_returns_products_from_openai(): void
@@ -70,8 +71,7 @@ class ProductAiTest extends TestCase
             ->assertJsonPath('products.0.price', 35000)
             ->assertJsonPath('products.0.stock', 20);
 
-        Http::assertSent(fn (ClientRequest $request): bool =>
-            $request->url() === 'https://api.openai.com/v1/chat/completions'
+        Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://api.openai.com/v1/chat/completions'
             && $request->hasHeader('Authorization', 'Bearer '.config('services.openai.api_key'))
             && data_get($request->data(), 'messages.1.content.0.text') === 'Jualan donat cokelat'
         );
@@ -112,7 +112,7 @@ class ProductAiTest extends TestCase
             ->assertJsonPath('message', 'Kunci AI tidak valid. Periksa konfigurasi OPENAI_API_KEY.');
     }
 
-    public function test_ai_generation_can_read_a_product_photo(): void
+    public function test_ai_generation_can_identify_a_product_from_a_photo(): void
     {
         Http::preventStrayRequests();
         config([
@@ -151,11 +151,18 @@ class ProductAiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('products.0.name', 'Tepung Terigu');
 
-        Http::assertSent(fn (ClientRequest $request): bool =>
-            $request->url() === 'https://api.openai.com/v1/chat/completions'
+        Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://api.openai.com/v1/chat/completions'
             && str_starts_with(
                 (string) data_get($request->data(), 'messages.1.content.1.image_url.url'),
                 'data:image/'
+            )
+            && str_contains(
+                (string) data_get($request->data(), 'messages.1.content.0.text'),
+                'termasuk produk tanpa kemasan'
+            )
+            && str_contains(
+                (string) data_get($request->data(), 'messages.0.content'),
+                'Untuk identitas yang tidak pasti'
             )
         );
     }
@@ -200,6 +207,7 @@ class ProductAiTest extends TestCase
             'price' => 35000,
             'stock' => 20,
             'unit' => 'box',
+            'image_path' => null,
         ]);
 
         $this->actingAs($user)
@@ -234,5 +242,31 @@ class ProductAiTest extends TestCase
             ]);
 
         $this->assertSame(0, Product::query()->count());
+    }
+
+    public function test_ai_created_products_have_no_photo(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->postJson(route('products.ai-store'), [
+                'products' => [
+                    [
+                        'name' => 'Produk AI',
+                        'category' => 'Makanan',
+                        'description' => 'Produk yang dibuat dengan AI.',
+                        'price' => 10000,
+                        'stock' => 2,
+                        'unit' => 'pcs',
+                    ],
+                ],
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('products', [
+            'user_id' => $user->id,
+            'name' => 'Produk AI',
+            'image_path' => null,
+        ]);
     }
 }

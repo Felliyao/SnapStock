@@ -23,6 +23,16 @@ class User extends Authenticatable
         return $this->hasMany(Product::class);
     }
 
+    public function rawMaterials(): HasMany
+    {
+        return $this->hasMany(RawMaterial::class);
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
     /**
      * Get the attributes that should be cast.
      *

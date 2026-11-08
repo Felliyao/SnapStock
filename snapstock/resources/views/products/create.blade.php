@@ -1,12 +1,13 @@
 <x-app-layout>
     <div
-        class="bg-slate-50 py-6 sm:py-8"
+        class="bg-slate-50"
+        :class="step === 'input' ? 'lg:h-[calc(100vh-4rem)] lg:overflow-hidden' : ''"
         x-data="{
             generateUrl: '{{ route('products.ai-generate') }}',
             saveUrl: '{{ route('products.ai-store') }}',
             csrfToken: '{{ csrf_token() }}',
-            step: 'input',
-            mode: 'text',
+            step: @js(isset($rows) ? 'import-review' : 'input'),
+            mode: @js(isset($rows) ? 'csv' : (old('_form_mode') === 'manual' ? 'manual' : 'text')),
             aiPrompt: '',
             imageFile: null,
             imagePreview: null,
@@ -34,7 +35,7 @@
                 if (this.mode === 'scan') {
                     if (!this.imageFile) {
                         this.step = 'input';
-                        this.errorMessage = 'Pilih foto kemasan atau nota terlebih dahulu.';
+                        this.errorMessage = 'Pilih foto produk, kemasan, atau nota terlebih dahulu.';
                         return;
                     }
 
@@ -98,44 +99,50 @@
             },
         }"
     >
-        <div class="mx-auto w-full max-w-5xl space-y-6 px-4 sm:px-6 lg:px-8">
-            <header class="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-center gap-3">
-                    <a href="{{ route('dashboard') }}" class="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-100 hover:text-slate-800">
-                        <span aria-hidden="true">←</span> Kembali
-                    </a>
-                    <div>
-                        <h1 class="text-xl font-extrabold text-slate-800 sm:text-2xl">✨ AI Instant Catalog Generator</h1>
-                        <p class="text-xs text-slate-500 sm:text-sm">Buat katalog dari deskripsi atau foto produk.</p>
-                    </div>
-                </div>
-                <span class="hidden w-fit rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 sm:inline-block">
-                    SnapStock Smart AI
-                </span>
-            </header>
+        <div class="mx-auto flex w-full max-w-5xl flex-col space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:space-y-3 lg:px-8 lg:py-3" :class="step === 'input' ? 'lg:h-full lg:min-h-0' : ''">
 
             <div
                 x-show="errorMessage"
                 x-cloak
                 role="alert"
-                class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
                 x-text="errorMessage"
             ></div>
 
-            <section x-show="step === 'input'" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-                <div>
-                    <h2 class="text-lg font-bold text-slate-800">Ceritakan produk jualanmu</h2>
-                    <p class="mt-1 text-sm text-slate-500">Pilih cara membuat katalog. Hasilnya bisa diperiksa sebelum disimpan.</p>
+            @if ($errors->any())
+                <div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    <ul class="list-inside list-disc space-y-1">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            <section x-show="step === 'input'" class="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:min-h-0 lg:flex-1 lg:space-y-4 lg:p-8">
+                <div class="space-y-0.5">
+                    <h2 class="text-xl font-bold text-slate-800 lg:text-2xl">Buat katalog produk</h2>
+                    <p class="text-sm text-slate-500 lg:text-base">Pilih cara membuat katalog. Hasilnya bisa diperiksa sebelum disimpan.</p>
                 </div>
 
-                <div class="flex flex-col gap-2 border-b border-slate-200 sm:flex-row" role="tablist" aria-label="Cara membuat katalog">
+                <div class="flex flex-col gap-1 border-b border-slate-200 sm:flex-row lg:gap-0" role="tablist" aria-label="Cara membuat katalog">
+                    <button
+                        type="button"
+                        role="tab"
+                        :aria-selected="mode === 'manual'"
+                        @click="mode = 'manual'; errorMessage = ''"
+                        :class="mode === 'manual' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                        class="border-b-2 px-3 py-2.5 text-left text-sm font-semibold transition sm:text-center lg:text-base"
+                    >
+                        Isi manual
+                    </button>
                     <button
                         type="button"
                         role="tab"
                         :aria-selected="mode === 'text'"
                         @click="mode = 'text'; errorMessage = ''"
                         :class="mode === 'text' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-700'"
-                        class="border-b-2 px-3 py-3 text-left text-sm font-semibold transition sm:text-center"
+                        class="border-b-2 px-3 py-2.5 text-left text-sm font-semibold transition sm:text-center lg:text-base"
                     >
                         ✏️ Ketik deskripsi produk
                     </button>
@@ -145,18 +152,123 @@
                         :aria-selected="mode === 'scan'"
                         @click="mode = 'scan'; errorMessage = ''"
                         :class="mode === 'scan' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-700'"
-                        class="border-b-2 px-3 py-3 text-left text-sm font-semibold transition sm:text-center"
+                        class="border-b-2 px-3 py-2.5 text-left text-sm font-semibold transition sm:text-center lg:text-base"
                     >
-                        📸 Scan kemasan atau nota
+                        📸 Kenali dari foto
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        :aria-selected="mode === 'csv'"
+                        @click="mode = 'csv'; errorMessage = ''"
+                        :class="mode === 'csv' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                        class="border-b-2 px-3 py-2.5 text-left text-sm font-semibold transition sm:text-center lg:text-base"
+                    >
+                        📊 Impor CSV
                     </button>
                 </div>
 
-                <div x-show="mode === 'text'" class="space-y-3">
+                <form x-show="mode === 'manual'" method="POST" action="{{ route('products.store') }}" enctype="multipart/form-data" class="space-y-4 lg:space-y-3">
+                    @csrf
+                    <input type="hidden" name="_form_mode" value="manual">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-x-5 lg:gap-y-3">
+                        <div class="space-y-1">
+                            <label for="product-name" class="block text-sm font-medium text-slate-800 lg:text-base">Nama produk <span class="text-red-600" aria-hidden="true">*</span></label>
+                            <input
+                                id="product-name"
+                                type="text"
+                                name="name"
+                                value="{{ old('name') }}"
+                                maxlength="255"
+                                required
+                                class="w-full rounded-xl border-slate-300 py-2.5 text-sm text-slate-800 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 lg:text-base"
+                                placeholder="Contoh: Donat cokelat"
+                            >
+                        </div>
+
+                        <div class="space-y-1">
+                            <label for="product-category" class="block text-sm font-medium text-slate-800 lg:text-base">Kategori</label>
+                            <input
+                                id="product-category"
+                                type="text"
+                                name="category"
+                                value="{{ old('category') }}"
+                                maxlength="100"
+                                class="w-full rounded-xl border-slate-300 py-2.5 text-sm text-slate-800 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 lg:text-base"
+                                placeholder="Contoh: Makanan"
+                            >
+                        </div>
+
+                        <div class="space-y-1">
+                            <label for="product-price" class="block text-sm font-medium text-slate-800 lg:text-base">Harga jual (Rp) <span class="text-red-600" aria-hidden="true">*</span></label>
+                            <input
+                                id="product-price"
+                                type="number"
+                                name="price"
+                                value="{{ old('price') }}"
+                                min="0"
+                                step="0.01"
+                                required
+                                class="w-full rounded-xl border-slate-300 py-2.5 text-sm text-slate-800 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 lg:text-base"
+                                placeholder="Contoh: 35000"
+                            >
+                        </div>
+
+                        <div class="space-y-1">
+                            <label for="product-stock" class="block text-sm font-medium text-slate-800 lg:text-base">Stok awal <span class="text-red-600" aria-hidden="true">*</span></label>
+                            <input
+                                id="product-stock"
+                                type="number"
+                                name="stock"
+                                value="{{ old('stock') }}"
+                                min="0"
+                                step="1"
+                                required
+                                class="w-full rounded-xl border-slate-300 py-2.5 text-sm text-slate-800 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 lg:text-base"
+                                placeholder="Contoh: 20"
+                            >
+                        </div>
+
+                        <div class="space-y-1">
+                            <label for="product-unit" class="block text-sm font-medium text-slate-800 lg:text-base">Satuan <span class="text-red-600" aria-hidden="true">*</span></label>
+                            <input
+                                id="product-unit"
+                                type="text"
+                                name="unit"
+                                value="{{ old('unit', 'pcs') }}"
+                                maxlength="30"
+                                required
+                                class="w-full rounded-xl border-slate-300 py-2.5 text-sm text-slate-800 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 lg:text-base"
+                                placeholder="Contoh: pcs, box, kg"
+                            >
+                        </div>
+
+                        <div class="space-y-1">
+                            <label for="product-image" class="block text-sm font-medium text-slate-800 lg:text-base">Foto produk (opsional)</label>
+                            <input
+                                id="product-image"
+                                type="file"
+                                name="image"
+                                accept="image/jpeg,image/png,image/webp"
+                                class="block w-full rounded-xl border border-slate-300 text-sm text-slate-600 file:mr-3 file:border-0 file:bg-emerald-50 file:px-3 file:py-2.5 file:font-semibold file:text-emerald-700 hover:file:bg-emerald-100"
+                            >
+                            <p class="text-xs text-slate-500">JPG, PNG, atau WEBP; maksimal 5 MB.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end border-t border-slate-100 pt-4 lg:pt-3">
+                        <button type="submit" class="w-full rounded-xl bg-emerald-600 px-6 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:w-auto lg:text-base">
+                            Simpan produk
+                        </button>
+                    </div>
+                </form>
+
+                <div x-show="mode === 'text'" class="space-y-3 lg:space-y-2">
                     <label for="ai-prompt" class="block text-sm font-medium text-slate-800">Deskripsi katalog</label>
                     <textarea
                         id="ai-prompt"
                         x-model="aiPrompt"
-                        rows="5"
+                        rows="4"
                         maxlength="2000"
                         class="w-full rounded-2xl border-slate-300 p-4 text-sm text-slate-800 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         placeholder="Contoh: Saya jual donat cokelat seharga Rp35.000, stok 20 box. Tambahkan juga donat stroberi seharga Rp38.000, stok 15 box."
@@ -180,9 +292,10 @@
                     </div>
                 </div>
 
-                <div x-show="mode === 'scan'" class="space-y-3">
-                    <label for="catalog-image" class="block text-sm font-medium text-slate-800">Foto kemasan atau nota</label>
-                    <div class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center transition hover:border-indigo-400">
+                <div x-show="mode === 'scan'" class="space-y-3 lg:space-y-2">
+                    <label for="catalog-image" class="block text-sm font-medium text-slate-800">Foto produk, kemasan, atau nota</label>
+                    <p class="text-sm text-slate-500">AI akan memperkirakan nama dan kategori produk dari tampilannya. Harga dan stok yang tidak terlihat akan diisi 0.</p>
+                    <div class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 text-center transition hover:border-indigo-400 lg:p-3">
                         <input
                             id="catalog-image"
                             type="file"
@@ -209,12 +322,39 @@
                     </div>
                 </div>
 
-                <div class="flex justify-end border-t border-slate-100 pt-4">
+                <div x-show="mode === 'csv'" class="space-y-3 lg:space-y-2">
+                    <div class="space-y-2">
+                        <h3 class="text-sm font-semibold text-slate-800">Impor atau perbarui katalog dari file CSV</h3>
+                        <p class="text-sm text-slate-500">Produk dengan nama yang sama akan diperbarui jika ada perbedaan. Periksa semua perubahan sebelum menyimpan.</p>
+                        <p class="text-xs text-slate-500">Maksimal 2 MB dan 500 produk. Kolom wajib: name, price, stock. Harga gunakan angka tanpa pemisah ribuan.</p>
+                        <a href="{{ route('products.import.template') }}" class="inline-flex text-sm font-semibold text-indigo-700 underline hover:text-indigo-900">
+                            Unduh template CSV
+                        </a>
+                    </div>
+                    <form method="POST" action="{{ route('products.import.preview') }}" enctype="multipart/form-data" class="space-y-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 lg:space-y-2 lg:p-3">
+                        @csrf
+                        <label for="catalog-csv" class="block text-sm font-medium text-slate-800">Pilih file CSV</label>
+                        <input
+                            id="catalog-csv"
+                            type="file"
+                            name="file"
+                            accept=".csv,text/csv"
+                            required
+                            class="block w-full rounded-xl border border-slate-300 bg-white text-sm text-slate-700 file:mr-4 file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
+                        >
+                        <button type="submit" class="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 sm:w-auto">
+                            Tinjau data CSV
+                        </button>
+                    </form>
+                </div>
+
+                <div class="flex justify-end border-t border-slate-100 pt-3 lg:pt-2">
                     <button
                         type="button"
                         @click="generateAi()"
+                        x-show="mode === 'text' || mode === 'scan'"
                         :disabled="mode === 'text' ? !aiPrompt.trim() : !imageFile"
-                        class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                        class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto lg:py-2"
                     >
                         <span>Generasikan katalog dengan AI</span>
                         <span aria-hidden="true">⚡</span>
@@ -222,13 +362,17 @@
                 </div>
             </section>
 
+            @if (isset($rows))
+                @include('products.import-preview')
+            @endif
+
             <section x-show="step === 'loading'" class="space-y-4 rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm sm:p-12">
                 <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-3xl text-indigo-600" aria-hidden="true">
                     ⚙️
                 </div>
                 <div class="space-y-1">
                     <h2 class="text-lg font-bold text-slate-800">Sedang meracik katalog...</h2>
-                    <p class="text-sm text-slate-500">AI sedang membaca informasi produk. Proses ini mungkin perlu beberapa saat.</p>
+                    <p class="text-sm text-slate-500">AI sedang mengenali produk dan membaca informasi yang terlihat. Proses ini mungkin perlu beberapa saat.</p>
                 </div>
             </section>
 
