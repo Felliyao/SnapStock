@@ -157,6 +157,10 @@ Video Demo YouTube: https://drive.google.com/file/d/1UstVnHQA1TCyUxy3WF7sKMXi6Ix
 
 Repository GitHub: https://github.com/Felliyao/SnapStock
 
+Akun Simulasi
+Username: efa@gmail.com
+Password: efacay07
+
 📄 Lisensi
 
 Proyek ini dikembangkan di bawah lisensi open-source MIT License.
