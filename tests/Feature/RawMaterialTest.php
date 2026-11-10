@@ -30,9 +30,9 @@ class RawMaterialTest extends TestCase
     public function test_receipt_scan_returns_extracted_items(): void
     {
         Http::preventStrayRequests();
-        config(['services.openai.api_key' => 'test-api-key']);
+        config(['services.gemini.api_key' => 'test-api-key']);
         Http::fake([
-            'api.openai.com/v1/chat/completions' => Http::response([
+            'generativelanguage.googleapis.com/v1beta/openai/chat/completions' => Http::response([
                 'choices' => [
                     [
                         'message' => [

@@ -32,6 +32,6 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
-        <env name="OPENAI_BASE_URL" value="https://api.openai.com/v1/"/>
+        <env name="GEMINI_BASE_URL" value="https://generativelanguage.googleapis.com/v1beta/openai/"/>
     </php>
 </phpunit>

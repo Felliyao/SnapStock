@@ -10,7 +10,7 @@ class AiChatService
 {
     public function isConfigured(): bool
     {
-        $apiKey = config('services.openai.api_key');
+        $apiKey = config('services.gemini.api_key');
 
         return is_string($apiKey) && trim($apiKey) !== '';
     }
@@ -26,12 +26,12 @@ class AiChatService
                 'ok' => false,
                 'content' => null,
                 'status' => 503,
-                'message' => 'Fitur AI belum dikonfigurasi. Tambahkan OPENAI_API_KEY pada file .env.',
+                'message' => 'Fitur AI belum dikonfigurasi. Tambahkan GEMINI_API_KEY pada file .env.',
             ];
         }
 
         $payload = [
-            'model' => config('services.openai.model'),
+            'model' => config('services.gemini.model'),
             'messages' => [
                 [
                     'role' => 'system',
@@ -47,10 +47,10 @@ class AiChatService
 
         try {
             $response = Http::acceptJson()
-                ->withToken(config('services.openai.api_key'))
+                ->withToken(config('services.gemini.api_key'))
                 ->connectTimeout(5)
                 ->timeout(60)
-                ->post(rtrim((string) config('services.openai.base_url'), '/').'/chat/completions', $payload);
+                ->post(rtrim((string) config('services.gemini.base_url'), '/').'/chat/completions', $payload);
         } catch (ConnectionException $exception) {
             Log::warning('AI request could not connect to the provider.', [
                 'exception' => $exception::class,
@@ -74,7 +74,7 @@ class AiChatService
                 'content' => null,
                 'status' => 502,
                 'message' => in_array($response->status(), [401, 403], true)
-                    ? 'Kunci AI tidak valid. Periksa konfigurasi OPENAI_API_KEY.'
+                    ? 'Kunci AI tidak valid. Periksa konfigurasi GEMINI_API_KEY.'
                     : 'AI gagal membuat hasil. Silakan coba lagi.',
             ];
         }

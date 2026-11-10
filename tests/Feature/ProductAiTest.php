@@ -31,15 +31,15 @@ class ProductAiTest extends TestCase
             ->assertSee('Simpan katalog');
     }
 
-    public function test_ai_generation_returns_products_from_openai(): void
+    public function test_ai_generation_returns_products_from_gemini(): void
     {
         Http::preventStrayRequests();
         config([
-            'services.openai.api_key' => 'test-api-key',
-            'services.openai.model' => 'gpt-4o-mini',
+            'services.gemini.api_key' => 'test-api-key',
+            'services.gemini.model' => 'gpt-4o-mini',
         ]);
         Http::fake([
-            'api.openai.com/v1/chat/completions' => Http::response([
+            'generativelanguage.googleapis.com/v1beta/openai/chat/completions' => Http::response([
                 'choices' => [
                     [
                         'message' => [
@@ -71,8 +71,8 @@ class ProductAiTest extends TestCase
             ->assertJsonPath('products.0.price', 35000)
             ->assertJsonPath('products.0.stock', 20);
 
-        Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://api.openai.com/v1/chat/completions'
-            && $request->hasHeader('Authorization', 'Bearer '.config('services.openai.api_key'))
+        Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+            && $request->hasHeader('Authorization', 'Bearer '.config('services.gemini.api_key'))
             && data_get($request->data(), 'messages.1.content.0.text') === 'Jualan donat cokelat'
         );
     }
@@ -80,7 +80,7 @@ class ProductAiTest extends TestCase
     public function test_ai_generation_returns_a_clear_error_when_api_key_is_missing(): void
     {
         Http::preventStrayRequests();
-        config(['services.openai.api_key' => null]);
+        config(['services.gemini.api_key' => null]);
         $user = User::factory()->create();
 
         $this->actingAs($user)
@@ -89,17 +89,17 @@ class ProductAiTest extends TestCase
                 'prompt' => 'Jualan donat',
             ])
             ->assertStatus(503)
-            ->assertJsonPath('message', 'Fitur AI belum dikonfigurasi. Tambahkan OPENAI_API_KEY pada file .env.');
+            ->assertJsonPath('message', 'Fitur AI belum dikonfigurasi. Tambahkan GEMINI_API_KEY pada file .env.');
 
         $this->assertSame(0, Product::query()->count());
     }
 
-    public function test_ai_generation_reports_an_invalid_openai_api_key(): void
+    public function test_ai_generation_reports_an_invalid_gemini_api_key(): void
     {
         Http::preventStrayRequests();
-        config(['services.openai.api_key' => 'invalid-api-key']);
+        config(['services.gemini.api_key' => 'invalid-api-key']);
         Http::fake([
-            'api.openai.com/v1/chat/completions' => Http::response([], 401),
+            'generativelanguage.googleapis.com/v1beta/openai/chat/completions' => Http::response([], 401),
         ]);
         $user = User::factory()->create();
 
@@ -109,18 +109,18 @@ class ProductAiTest extends TestCase
                 'prompt' => 'Jualan donat',
             ])
             ->assertStatus(502)
-            ->assertJsonPath('message', 'Kunci AI tidak valid. Periksa konfigurasi OPENAI_API_KEY.');
+            ->assertJsonPath('message', 'Kunci AI tidak valid. Periksa konfigurasi GEMINI_API_KEY.');
     }
 
     public function test_ai_generation_can_identify_a_product_from_a_photo(): void
     {
         Http::preventStrayRequests();
         config([
-            'services.openai.api_key' => 'test-api-key',
-            'services.openai.model' => 'gpt-4o-mini',
+            'services.gemini.api_key' => 'test-api-key',
+            'services.gemini.model' => 'gpt-4o-mini',
         ]);
         Http::fake([
-            'api.openai.com/v1/chat/completions' => Http::response([
+            'generativelanguage.googleapis.com/v1beta/openai/chat/completions' => Http::response([
                 'choices' => [
                     [
                         'message' => [
@@ -150,7 +150,7 @@ class ProductAiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('products.0.name', 'Tepung Terigu');
 
-        Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://api.openai.com/v1/chat/completions'
+        Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
             && str_starts_with(
                 (string) data_get($request->data(), 'messages.1.content.1.image_url.url'),
                 'data:image/'

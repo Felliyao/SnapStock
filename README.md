@@ -1,78 +1,162 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+SnapStock — Sistem POS & Manajemen Instan
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+1. Deskripsi Masalah & Solusi
 
-## About Laravel
+Masalah
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Pelaku Usaha Mikro, Kecil, dan Menengah (UMKM) sering kali mengalami kendala operasional seperti:
+Pencatatan Terpisah: Sistem kasir (POS) tidak terhubung langsung dengan persediaan bahan baku mentah, menyebabkan masalah bahan habis tak terduga (stock-out).
+Inefisiensi Input Katalog: Proses mengunggah produk dan membuat deskripsi satu per satu secara manual membutuhkan waktu yang relatif lama.
+Kerumitan Operasional: Antarmuka aplikasi POS yang kompleks membingungkan kasir dan staf produksi.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Solusi: SnapStock
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+SnapStock menghadirkan platform web manajemen POS dan persediaan cerdas dengan 3 keunggulan utama:
+Otomatisasi Potong Stok Bahan Baku (Bill of Materials): Ketika produk di-restok/diproduksi, stok bahan baku mentah yang terkait akan otomatis terpotong sesuai takaran resep.
+AI Instant Catalog Generation: Penginputan produk baru secara cepat melalui foto, deskripsi teks, atau berkas CSV berbasis OpenAI/Gemini API.
+Simplicity-First Dashboard: Antarmuka ramah pengguna dengan 3 aksi cepat utama (Quick Actions): Penambahan Produk Baru, Transaksi Baru, dan Penambahan Bahan Baku.
 
-## Learning Laravel
+2. Fitur Utama & Target Pengguna
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Target Pengguna
+Pemilik & Pengelola UMKM (F&B, Ritel, dan Industri Kreatif).
+Kasir & Staf Operasional Toko.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Fitur Utama
+Dashboard Navigasi Simpel: Akses 1-klik untuk 3 fungsi harian paling krusial.
+AI Catalog Generation: Ekstraksi otomatis nama produk, kategori, perkiraan harga, dan stok dari unggahan gambar/teks/CSV.
+Automated Stock Deduction (BOM): Pengurangan presisi stok bahan baku mentah (decimal 14,3) berbasis relasi resep produk.
+POS & Checkout Module: Keranjang belanja interaktif dan kalkulasi pembayaran tunai secara instan.
+Scan Struk Pembelian (AI Vision): Pembacaan struk pembelian bahan baku secara otomatis untuk memperbarui persediaan.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+3. Tech Stack & Arsitektur Sistem
 
-## Database MySQL
+Stack Teknologi
+Backend: PHP 8.3+, Laravel 13 Framework (MVC & Service Layer pattern)
+Frontend: Blade Templating, Tailwind CSS 4, Alpine.js, Vite
+Database: SQLite (Default lokal), didukung migrasi skema Laravel untuk MySQL/PostgreSQL
+AI Engine: Gemini API (gemini-3.5-flash) via AiChatService
+Auth & Security: Laravel Breeze (Session-based Auth & Email Verification)
+Dev Tools: Laravel Boost, Pint (Code Formatter), PHPUnit
 
-Dashboard menyimpan produk ke tabel `products` dan menampilkan produk milik akun yang sedang masuk. Untuk memakai MySQL, buat database terlebih dahulu, lalu isi konfigurasi berikut di file `.env`:
+Arsitektur Perangkat Lunak
 
-```dotenv
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=snapstock
-DB_USERNAME=root
-DB_PASSWORD=
-```
+[ User Browser (Blade + Alpine.js) ]
+                │
+                │ HTTP Request (Session Auth & CSRF)
+                ▼
+      [ Routes (routes/web.php) ] ── (Middleware: Auth + Verified + Throttle)
+                │
+                ▼
+     [ Controller Validation ] ── (Form Request Rule Check)
+                │
+                ├──► [ Service Layer (Business Logic) ]
+                │       ├── TransactionCheckoutService  ──► Checkout POS & Pemotongan Stok
+                │       ├── ProductProductionService    ──► Kalkulasi Resep (BOM) & Potong Bahan Baku
+                │       ├── ProductCsvImportService    ──► Parsing Data CSV Massal
+                │       └── AiChatService              ──► Integration dengan Gemini API
+                │
+                ▼
+     [ Eloquent ORM (Models) ] ── (DB Transaction & Lock For Update)
+                │
+                ▼
+    [ Basis Data (SQLite / MySQL) ]
 
-Pastikan ekstensi `pdo_mysql` aktif pada PHP yang digunakan oleh terminal dan web server. Setelah itu, jalankan migrasi untuk membuat tabel:
 
-```bash
-php artisan config:clear
-php artisan migrate
-```
+💻 4. Cara Instalasi & Menjalankan Aplikasi
 
-## Agentic Development
+Ikuti langkah-langkah berikut untuk menjalankan SnapStock di lingkungan lokal Anda:
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Prasyarat
+PHP >= 8.3
+Composer
+Node.js >= 18.x & NPM
 
-```bash
-composer require laravel/boost --dev
+Langkah-Langkah Instalasi
 
-php artisan boost:install
-```
+Clone Repositori:
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+git clone https://github.com/username/snapstock.git
 
-## Contributing
+cd snapstock
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
 
-## Code of Conduct
+Install Dependensi Backend (Composer):
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+composer install
 
-## Security Vulnerabilities
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Install Dependensi Frontend (NPM):
 
-## License
+npm install
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+Konfigurasi Environment:
+Salin file .env.example menjadi .env:
+
+cp .env.example .env
+
+
+Generate App Key:
+
+php artisan key:generate
+
+
+Persiapan Database & Migrasi:
+Dari bawaannya, Laravel menggunakan SQLite. Buat file database SQLite kalau belum ada:
+
+touch database/database.sqlite
+
+
+Jalankan migrasi database beserta seeders jika ada:
+
+php artisan migrate --seed
+
+
+Jalankan Server Pengembang:
+Buka 2 terminal terpisah:
+
+Terminal 1 (Laravel Server):
+
+php artisan serve
+
+
+Terminal 2 (Vite Asset Bundler):
+
+npm run dev
+
+
+Akses Aplikasi:
+Buka browser dan akses alamat http://127.0.0.1:8000.
+
+5. Environment Variables
+
+Berikut adalah konfigurasi kunci yang perlu disesuaikan pada berkas .env:
+
+APP_NAME="SnapStock - Sistem POS & Manajemen Instan"
+APP_ENV=local
+APP_KEY=base64:M3f7neWQsucwiuYgL9c0J74NScLqxzSf4xY3GSQZCZw=
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+
+# Database Configuration
+DB_CONNECTION=sqlite
+# DB_DATABASE=laravel
+
+# Gemini API Integration Key
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-3.5-flash
+
+
+6. Tautan Penting & Dokumentasi
+
+Website / Live Demo: https://snapstock-production-1474.up.railway.app
+
+Video Demo YouTube: https://drive.google.com/file/d/1UstVnHQA1TCyUxy3WF7sKMXi6IxWUTMy/view?usp=sharing
+
+Repository GitHub: https://github.com/Felliyao/SnapStock
+
+📄 Lisensi
+
+Proyek ini dikembangkan di bawah lisensi open-source MIT License.
