@@ -29,7 +29,7 @@ class ProductImportTest extends TestCase
         $this->actingAs($user)
             ->get(route('products.create'))
             ->assertOk()
-            ->assertSee('Buat Katalog Produk')
+            ->assertSee('Buat katalog produk')
             ->assertSee('Impor CSV')
             ->assertSee('Unduh template CSV');
 
@@ -37,7 +37,7 @@ class ProductImportTest extends TestCase
             ->get(route('products.import.template'))
             ->assertOk()
             ->assertHeader('content-type', 'text/csv; charset=UTF-8')
-            ->assertStreamedContent("name,category,description,price,stock,unit\n");
+            ->assertStreamedContent("name,category,price,stock,unit\n");
     }
 
     public function test_user_can_preview_csv_updates_and_import_new_products_without_changing_another_users_catalog(): void
@@ -47,7 +47,6 @@ class ProductImportTest extends TestCase
         $existingProduct = $user->products()->create([
             'name' => 'Coffee',
             'category' => 'Old category',
-            'description' => 'Old description',
             'price' => 10000,
             'stock' => 2,
             'unit' => 'bag',
@@ -55,7 +54,6 @@ class ProductImportTest extends TestCase
         $otherUsersProduct = $otherUser->products()->create([
             'name' => 'Coffee',
             'category' => 'Other category',
-            'description' => 'Keep unchanged',
             'price' => 20000,
             'stock' => 9,
             'unit' => 'bag',
@@ -63,23 +61,22 @@ class ProductImportTest extends TestCase
         $unchangedProduct = $user->products()->create([
             'name' => 'Oolong',
             'category' => 'Tea',
-            'description' => 'Roasted tea',
             'price' => 12000,
             'stock' => 5,
             'unit' => 'bag',
         ]);
         $csv = UploadedFile::fake()->createWithContent(
             'catalog.csv',
-            "name,category,description,price,stock,unit\ncoffee,Drinks,Arabica,15000,7,bag\nTea,Drinks,Green tea,8000,4,box\nOolong,Tea,Roasted tea,12000,5,bag\n"
+            "name,category,price,stock,unit\ncoffee,Drinks,15000,7,bag\nTea,Drinks,8000,4,box\nOolong,Tea,12000,5,bag\n"
         );
 
         $this->actingAs($user)
             ->post(route('products.import.preview'), ['file' => $csv])
             ->assertOk()
-            ->assertSee('Buat Katalog Produk')
+            ->assertSee('Buat katalog produk')
             ->assertSee('Perbarui')
             ->assertSee('Tambah')
-            ->assertSee('Arabica')
+            ->assertSee('Drinks')
             ->assertSee('15000')
             ->assertSee('Tidak ada perubahan')
             ->assertSee('name="products[0][name]"', false);
@@ -90,7 +87,6 @@ class ProductImportTest extends TestCase
                     [
                         'name' => 'coffee',
                         'category' => 'Drinks',
-                        'description' => 'Arabica',
                         'price' => '15000',
                         'stock' => '7',
                         'unit' => 'bag',
@@ -98,7 +94,6 @@ class ProductImportTest extends TestCase
                     [
                         'name' => 'Tea',
                         'category' => 'Drinks',
-                        'description' => 'Green tea',
                         'price' => '8000',
                         'stock' => '4',
                         'unit' => 'box',
@@ -106,7 +101,6 @@ class ProductImportTest extends TestCase
                     [
                         'name' => 'Oolong',
                         'category' => 'Tea',
-                        'description' => 'Roasted tea',
                         'price' => '12000',
                         'stock' => '5',
                         'unit' => 'bag',
@@ -122,7 +116,6 @@ class ProductImportTest extends TestCase
             'user_id' => $user->id,
             'name' => 'coffee',
             'category' => 'Drinks',
-            'description' => 'Arabica',
             'price' => 15000,
             'stock' => 7,
             'unit' => 'bag',
@@ -145,7 +138,6 @@ class ProductImportTest extends TestCase
             'id' => $otherUsersProduct->id,
             'user_id' => $otherUser->id,
             'name' => 'Coffee',
-            'description' => 'Keep unchanged',
             'price' => 20000,
             'stock' => 9,
         ]);
@@ -184,7 +176,6 @@ class ProductImportTest extends TestCase
                     [
                         'name' => 'Product',
                         'category' => null,
-                        'description' => null,
                         'price' => 'not-a-price',
                         'stock' => '2',
                         'unit' => 'pcs',
@@ -200,7 +191,6 @@ class ProductImportTest extends TestCase
                     [
                         'name' => 'Product',
                         'category' => null,
-                        'description' => null,
                         'price' => '100',
                         'stock' => '2',
                         'unit' => 'pcs',
@@ -208,7 +198,6 @@ class ProductImportTest extends TestCase
                     [
                         'name' => 'product',
                         'category' => null,
-                        'description' => null,
                         'price' => '200',
                         'stock' => '3',
                         'unit' => 'pcs',
@@ -231,7 +220,6 @@ class ProductImportTest extends TestCase
                     [
                         'name' => 'Produk CSV',
                         'category' => null,
-                        'description' => null,
                         'price' => '10000',
                         'stock' => '2',
                         'unit' => 'pcs',
@@ -267,7 +255,7 @@ class ProductImportTest extends TestCase
         $this->actingAs($user)
             ->post(route('products.import.preview'), ['file' => $csv])
             ->assertOk()
-            ->assertSee('Buat Katalog Produk')
+            ->assertSee('Buat katalog produk')
             ->assertSee('Tea')
             ->assertSee('8000')
             ->assertSee('Tambah');

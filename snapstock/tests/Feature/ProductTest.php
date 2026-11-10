@@ -51,7 +51,6 @@ class ProductTest extends TestCase
         $user->products()->create([
             'name' => 'Produk Database',
             'category' => 'Minuman',
-            'description' => 'Produk yang disimpan di database.',
             'price' => 18000,
             'stock' => 12,
             'unit' => 'cup',
@@ -107,19 +106,38 @@ class ProductTest extends TestCase
     public function test_user_can_edit_their_own_product_from_the_catalogue(): void
     {
         $user = User::factory()->create();
+        $rawMaterial = $user->rawMaterials()->create([
+            'name' => 'Tepung Terigu',
+            'stock' => 10,
+            'unit' => 'kg',
+        ]);
+        $additionalRawMaterial = $user->rawMaterials()->create([
+            'name' => 'Minyak Goreng',
+            'stock' => '5.000',
+            'unit' => 'liter',
+        ]);
         $product = $user->products()->create([
             'name' => 'Produk Lama',
             'category' => 'Makanan',
-            'description' => 'Deskripsi lama.',
             'price' => 10000,
             'stock' => 3,
             'unit' => 'pcs',
         ]);
+        $product->rawMaterials()->attach($rawMaterial, ['quantity_per_product' => '0.125']);
 
         $this->actingAs($user)
             ->get(route('products.edit', $product))
             ->assertOk()
             ->assertSee('value="Produk Lama"', false)
+            ->assertSee('Kebutuhan bahan baku (opsional)')
+            ->assertSee('Tambah bahan baku')
+            ->assertSee('Pilih bahan baku')
+            ->assertSee(':name="`raw_materials[${index}][raw_material_id]`"', false)
+            ->assertSee(':name="`raw_materials[${index}][quantity_per_product]`"', false)
+            ->assertSee('x-model="material.quantity_per_product"', false)
+            ->assertSee('Tepung Terigu')
+            ->assertSee('Minyak Goreng')
+            ->assertSee('0.125')
             ->assertDontSee('name="description"', false)
             ->assertDontSee('Deskripsi lama.');
 
@@ -130,6 +148,12 @@ class ProductTest extends TestCase
                 'price' => '25000',
                 'stock' => '8',
                 'unit' => 'botol',
+                'raw_materials' => [
+                    [
+                        'raw_material_id' => $additionalRawMaterial->id,
+                        'quantity_per_product' => '0.250',
+                    ],
+                ],
             ])
             ->assertRedirect(route('catalogue.index'))
             ->assertSessionHas('status', 'Produk berhasil diperbarui.');
@@ -139,10 +163,56 @@ class ProductTest extends TestCase
             'user_id' => $user->id,
             'name' => 'Produk Baru',
             'category' => 'Minuman',
-            'description' => 'Deskripsi lama.',
             'price' => 25000,
             'stock' => 8,
             'unit' => 'botol',
+        ]);
+        $this->assertDatabaseHas('product_raw_material', [
+            'product_id' => $product->id,
+            'raw_material_id' => $additionalRawMaterial->id,
+            'quantity_per_product' => '0.250',
+        ]);
+        $this->assertDatabaseMissing('product_raw_material', [
+            'product_id' => $product->id,
+            'raw_material_id' => $rawMaterial->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('catalogue.index'))
+            ->assertOk()
+            ->assertSee('Minyak Goreng')
+            ->assertSee('0.25');
+    }
+
+    public function test_user_can_remove_all_raw_materials_when_editing_a_product(): void
+    {
+        $user = User::factory()->create();
+        $rawMaterial = $user->rawMaterials()->create([
+            'name' => 'Tepung Terigu',
+            'stock' => '10.000',
+            'unit' => 'kg',
+        ]);
+        $product = $user->products()->create([
+            'name' => 'Produk Lama',
+            'price' => 10000,
+            'stock' => 3,
+            'unit' => 'pcs',
+        ]);
+        $product->rawMaterials()->attach($rawMaterial, ['quantity_per_product' => '0.125']);
+
+        $this->actingAs($user)
+            ->put(route('products.update', $product), [
+                'name' => 'Produk Lama',
+                'price' => '10000',
+                'stock' => '3',
+                'unit' => 'pcs',
+            ])
+            ->assertRedirect(route('catalogue.index'))
+            ->assertSessionHas('status', 'Produk berhasil diperbarui.');
+
+        $this->assertDatabaseMissing('product_raw_material', [
+            'product_id' => $product->id,
+            'raw_material_id' => $rawMaterial->id,
         ]);
     }
 
@@ -231,6 +301,76 @@ class ProductTest extends TestCase
             'id' => $product->id,
             'user_id' => $user->id,
             'stock' => 25,
+        ]);
+    }
+
+    public function test_product_restock_consumes_the_recipe_quantity_from_raw_material_stock(): void
+    {
+        $user = User::factory()->create();
+        $rawMaterial = $user->rawMaterials()->create([
+            'name' => 'Tepung Terigu',
+            'stock' => '10.500',
+            'unit' => 'kg',
+        ]);
+        $product = $user->products()->create([
+            'name' => 'Roti',
+            'price' => 8000,
+            'stock' => 2,
+            'unit' => 'pcs',
+        ]);
+        $product->rawMaterials()->attach($rawMaterial, ['quantity_per_product' => '0.250']);
+
+        $this->actingAs($user)
+            ->post(route('products.stock.store'), [
+                'product_id' => $product->id,
+                'quantity' => 4,
+                'stock_action' => 'restock',
+            ])
+            ->assertRedirect(route('dashboard'));
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'stock' => 6,
+        ]);
+        $this->assertDatabaseHas('raw_materials', [
+            'id' => $rawMaterial->id,
+            'stock' => '9.500',
+        ]);
+    }
+
+    public function test_product_restock_is_rejected_without_stock_changes_when_recipe_material_is_insufficient(): void
+    {
+        $user = User::factory()->create();
+        $rawMaterial = $user->rawMaterials()->create([
+            'name' => 'Cokelat',
+            'stock' => '1.000',
+            'unit' => 'kg',
+        ]);
+        $product = $user->products()->create([
+            'name' => 'Brownies',
+            'price' => 12000,
+            'stock' => 2,
+            'unit' => 'loyang',
+        ]);
+        $product->rawMaterials()->attach($rawMaterial, ['quantity_per_product' => '0.500']);
+
+        $this->actingAs($user)
+            ->from(route('dashboard'))
+            ->post(route('products.stock.store'), [
+                'product_id' => $product->id,
+                'quantity' => 3,
+                'stock_action' => 'restock',
+            ])
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHasErrors('quantity');
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'stock' => 2,
+        ]);
+        $this->assertDatabaseHas('raw_materials', [
+            'id' => $rawMaterial->id,
+            'stock' => '1.000',
         ]);
     }
 
@@ -519,6 +659,11 @@ class ProductTest extends TestCase
             ->assertDontSee('Pajak')
             ->assertSee('Semua')
             ->assertSee('Checkout')
+            ->assertSee('@click="openPaymentModal()"', false)
+            ->assertSee('aria-labelledby="payment-modal-title"', false)
+            ->assertSee('x-model="paymentMethod"', false)
+            ->assertSee('x-model="amountReceived"', false)
+            ->assertSee('Konfirmasi pembayaran')
             ->assertDontSee('Tahan pesanan')
             ->assertDontSee('Show More')
             ->assertSee('@click="checkout()"', false)
@@ -537,12 +682,23 @@ class ProductTest extends TestCase
     public function test_user_can_save_a_product_and_see_it_on_the_dashboard(): void
     {
         $user = User::factory()->create();
+        $rawMaterial = $user->rawMaterials()->create([
+            'name' => 'Susu',
+            'stock' => '5.000',
+            'unit' => 'liter',
+        ]);
         $data = [
             'name' => 'Donat Cokelat',
             'category' => 'Makanan',
             'price' => '35000',
             'stock' => '20',
             'unit' => 'box',
+            'raw_materials' => [
+                [
+                    'raw_material_id' => $rawMaterial->id,
+                    'quantity_per_product' => '0.125',
+                ],
+            ],
         ];
 
         $this->actingAs($user)
@@ -556,6 +712,12 @@ class ProductTest extends TestCase
             'price' => 35000,
             'stock' => 20,
             'image_path' => null,
+        ]);
+        $product = $user->products()->where('name', 'Donat Cokelat')->firstOrFail();
+        $this->assertDatabaseHas('product_raw_material', [
+            'product_id' => $product->id,
+            'raw_material_id' => $rawMaterial->id,
+            'quantity_per_product' => '0.125',
         ]);
 
         $this->actingAs($user)
@@ -585,6 +747,11 @@ class ProductTest extends TestCase
     public function test_manual_product_entry_displays_individual_product_fields(): void
     {
         $user = User::factory()->create();
+        $rawMaterial = $user->rawMaterials()->create([
+            'name' => 'Tepung Terigu',
+            'stock' => '10.000',
+            'unit' => 'kg',
+        ]);
 
         $this->actingAs($user)
             ->get(route('products.create'))
@@ -596,9 +763,47 @@ class ProductTest extends TestCase
             ->assertSee('name="price"', false)
             ->assertSee('name="stock"', false)
             ->assertSee('name="unit"', false)
+            ->assertSee('Kebutuhan bahan baku (opsional)')
+            ->assertSee('Tambah bahan baku')
+            ->assertSee('Pilih bahan baku')
+            ->assertSee(':name="`raw_materials[${index}][raw_material_id]`"', false)
+            ->assertSee(':name="`raw_materials[${index}][quantity_per_product]`"', false)
+            ->assertSee('x-model="material.quantity_per_product"', false)
+            ->assertSee('Tepung Terigu')
+            ->assertSee('kg')
+            ->assertSee('lg:overflow-y-auto', false)
+            ->assertSee('lg:[scrollbar-width:none]', false)
+            ->assertSee('lg:[&::-webkit-scrollbar]:hidden', false)
             ->assertSee('enctype="multipart/form-data"', false)
             ->assertSee('name="image"', false)
             ->assertDontSee('name="description"', false);
+    }
+
+    public function test_user_can_save_a_manual_product_without_selecting_raw_materials(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post(route('products.store'), [
+                'name' => 'Produk Tanpa Resep',
+                'price' => '15000',
+                'stock' => '5',
+                'unit' => 'pcs',
+            ])
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHas('status', 'Produk berhasil ditambahkan.');
+
+        $product = $user->products()->where('name', 'Produk Tanpa Resep')->firstOrFail();
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'user_id' => $user->id,
+            'name' => 'Produk Tanpa Resep',
+            'stock' => 5,
+        ]);
+        $this->assertDatabaseMissing('product_raw_material', [
+            'product_id' => $product->id,
+        ]);
     }
 
     public function test_user_can_save_a_manual_product_photo_and_see_it_in_the_catalogue(): void

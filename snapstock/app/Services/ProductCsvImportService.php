@@ -6,14 +6,16 @@ use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class ProductCsvImportService
 {
-    private const PRODUCT_FIELDS = ['name', 'category', 'description', 'price', 'stock', 'unit'];
+    private const PRODUCT_FIELDS = ['name', 'category', 'price', 'stock', 'unit'];
 
     private const REQUIRED_HEADERS = ['name', 'price', 'stock'];
 
@@ -68,13 +70,21 @@ class ProductCsvImportService
     {
         $validator = Validator::make(['products' => $products], [
             'products' => ['required', 'array', 'min:1', 'max:'.self::MAX_ROWS],
-            'products.*' => ['required', 'array:name,category,description,price,stock,unit'],
+            'products.*' => ['required', 'array'],
             'products.*.name' => ['required', 'string', 'max:255'],
             'products.*.category' => ['nullable', 'string', 'max:100'],
-            'products.*.description' => ['nullable', 'string', 'max:2000'],
             'products.*.price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'products.*.stock' => ['required', 'integer', 'min:0', 'max:4294967295'],
             'products.*.unit' => ['required', 'string', 'max:30'],
+            'products.*.image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
+            'products.*.raw_materials' => ['sometimes', 'array', 'max:100'],
+            'products.*.raw_materials.*' => ['required', 'array:raw_material_id,quantity_per_product'],
+            'products.*.raw_materials.*.raw_material_id' => [
+                'required',
+                'integer',
+                Rule::exists('raw_materials', 'id')->where('user_id', $user->id),
+            ],
+            'products.*.raw_materials.*.quantity_per_product' => ['required', 'numeric', 'min:0', 'max:4294967295', 'decimal:0,3'],
         ]);
         $validated = $validator->validate()['products'];
 
@@ -105,18 +115,49 @@ class ProductCsvImportService
             foreach ($validated as $attributes) {
                 $normalizedName = Str::lower(trim($attributes['name']));
                 $existingProduct = $existingProducts->get($normalizedName);
+                $image = $attributes['image'] ?? null;
+                $rawMaterials = $attributes['raw_materials'] ?? null;
+                unset($attributes['image'], $attributes['raw_materials'], $attributes['description']);
+
+                $newImagePath = null;
+
+                if ($image instanceof UploadedFile) {
+                    $newImagePath = $image->storePublicly('products', 'public');
+
+                    if ($newImagePath === false) {
+                        throw new RuntimeException('The product image could not be stored.');
+                    }
+
+                    $attributes['image_path'] = $newImagePath;
+                }
 
                 if ($existingProduct === null) {
-                    $existingProducts->put($normalizedName, $user->products()->create($attributes));
+                    $product = $user->products()->create($attributes);
+
+                    if ($rawMaterials !== null) {
+                        $product->rawMaterials()->sync($this->recipeRequirements($rawMaterials));
+                    }
+
+                    $existingProducts->put($normalizedName, $product);
                     $counts['created']++;
 
                     continue;
                 }
 
+                $oldImagePath = $existingProduct->image_path;
                 $existingProduct->fill($attributes);
 
-                if ($existingProduct->isDirty()) {
+                if ($existingProduct->isDirty() || $rawMaterials !== null) {
                     $existingProduct->save();
+
+                    if ($rawMaterials !== null) {
+                        $existingProduct->rawMaterials()->sync($this->recipeRequirements($rawMaterials));
+                    }
+
+                    if ($newImagePath !== null && $oldImagePath !== null) {
+                        Storage::disk('public')->delete($oldImagePath);
+                    }
+
                     $counts['updated']++;
 
                     continue;
@@ -127,6 +168,27 @@ class ProductCsvImportService
 
             return $counts;
         });
+    }
+
+    /**
+     * @param  array<int, array{raw_material_id: int|string, quantity_per_product: int|float|string}>  $rawMaterials
+     * @return array<int, array{quantity_per_product: int|float|string}>
+     */
+    private function recipeRequirements(array $rawMaterials): array
+    {
+        $requirements = [];
+
+        foreach ($rawMaterials as $rawMaterial) {
+            $quantity = (float) $rawMaterial['quantity_per_product'];
+
+            if ($quantity > 0) {
+                $requirements[(int) $rawMaterial['raw_material_id']] = [
+                    'quantity_per_product' => $quantity,
+                ];
+            }
+        }
+
+        return $requirements;
     }
 
     /**
@@ -203,13 +265,11 @@ class ProductCsvImportService
                 }
 
                 $product['category'] = $product['category'] === '' ? null : $product['category'];
-                $product['description'] = $product['description'] === '' ? null : $product['description'];
                 $product['unit'] = $product['unit'] === null || $product['unit'] === '' ? 'pcs' : $product['unit'];
 
                 $validator = Validator::make($product, [
                     'name' => ['required', 'string', 'max:255'],
                     'category' => ['nullable', 'string', 'max:100'],
-                    'description' => ['nullable', 'string', 'max:2000'],
                     'price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
                     'stock' => ['required', 'integer', 'min:0', 'max:4294967295'],
                     'unit' => ['required', 'string', 'max:30'],
@@ -269,7 +329,7 @@ class ProductCsvImportService
             } elseif ($field === 'stock') {
                 $oldValue = (string) $oldValue;
                 $newValue = (string) $newValue;
-            } elseif ($field === 'category' || $field === 'description') {
+            } elseif ($field === 'category') {
                 $oldValue = $oldValue ?? '';
                 $newValue = $newValue ?? '';
             }

@@ -8,7 +8,9 @@ use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return auth()->check()
+        ? redirect()->route('dashboard')
+        : redirect()->route('login');
 });
 
 Route::get('/dashboard', [ProductController::class, 'index'])
@@ -51,6 +53,14 @@ Route::post('/materials/stock', [RawMaterialController::class, 'restock'])
     ->middleware(['auth', 'verified', 'throttle:30,1'])
     ->name('materials.stock.store');
 
+Route::post('/materials/restock-batch', [RawMaterialController::class, 'restockBatch'])
+    ->middleware(['auth', 'verified', 'throttle:30,1'])
+    ->name('materials.restock-batch');
+
+Route::post('/materials/scan-receipt', [RawMaterialController::class, 'scanReceipt'])
+    ->middleware(['auth', 'verified', 'throttle:10,1'])
+    ->name('materials.scan-receipt');
+
 Route::post('/materials', [RawMaterialController::class, 'store'])
     ->middleware(['auth', 'verified'])
     ->name('materials.store');
@@ -81,6 +91,10 @@ Route::get('/transactions', [TransactionController::class, 'index'])
 Route::post('/transactions', [TransactionController::class, 'store'])
     ->middleware(['auth', 'verified', 'throttle:30,1'])
     ->name('transactions.store');
+
+Route::delete('/transactions/{transaction}', [TransactionController::class, 'destroy'])
+    ->middleware(['auth', 'verified'])
+    ->name('transactions.destroy');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

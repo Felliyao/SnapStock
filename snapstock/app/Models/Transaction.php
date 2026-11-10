@@ -7,13 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['user_id', 'total', 'status'])]
+#[Fillable(['user_id', 'total', 'status', 'payment_method', 'amount_paid', 'change_amount'])]
 class Transaction extends Model
 {
     protected function casts(): array
     {
         return [
             'total' => 'decimal:2',
+            'amount_paid' => 'decimal:2',
+            'change_amount' => 'decimal:2',
         ];
     }
 

@@ -8,6 +8,10 @@
             cart: [],
             searchQuery: '',
             selectedCategory: 'all',
+            paymentMethod: 'cash',
+            amountReceived: '',
+            paymentModalOpen: false,
+            checkoutModalOpen: false,
             notice: '',
             isCheckingOut: false,
 
@@ -37,6 +41,17 @@
 
             get itemCount() {
                 return this.cart.reduce((count, item) => count + item.qty, 0);
+            },
+
+            get changeAmount() {
+                return Math.max(Number(this.amountReceived || 0) - this.total, 0);
+            },
+
+            get canCheckout() {
+                return this.cart.length > 0 && !this.isCheckingOut && (
+                    this.paymentMethod !== 'cash' ||
+                    (this.amountReceived !== '' && Number(this.amountReceived) >= this.total)
+                );
             },
 
             quantityFor(product) {
@@ -88,8 +103,18 @@
                 this.notice = '';
             },
 
-            async checkout() {
+            openPaymentModal() {
                 if (this.cart.length === 0 || this.isCheckingOut) {
+                    return;
+                }
+
+                this.notice = '';
+                this.checkoutModalOpen = false;
+                this.paymentModalOpen = true;
+            },
+
+            async checkout() {
+                if (!this.canCheckout) {
                     return;
                 }
 
@@ -105,6 +130,8 @@
                             'X-CSRF-TOKEN': this.csrfToken,
                         },
                         body: JSON.stringify({
+                            payment_method: this.paymentMethod,
+                            amount_paid: this.paymentMethod === 'cash' ? this.amountReceived : null,
                             items: this.cart.map(item => ({
                                 product_id: item.id,
                                 quantity: item.qty,
@@ -145,8 +172,13 @@
             },
         }"
     >
-        <main class="mx-auto grid w-full grid-cols-1 gap-4 px-4 py-3 sm:gap-6 sm:px-6 sm:py-4 lg:h-[calc(100vh-4rem)] lg:min-h-0 lg:grid-cols-12 lg:overflow-hidden">
+        <main class="mx-auto grid w-full grid-cols-1 gap-4 px-4 pb-24 pt-3 sm:gap-6 sm:px-6 sm:pb-24 sm:pt-4 lg:h-[calc(100vh-4rem)] lg:min-h-0 lg:grid-cols-12 lg:overflow-hidden lg:pb-4">
             <section class="flex min-w-0 flex-col gap-4 lg:col-span-8 lg:min-h-0">
+                <p class="text-xs font-medium text-slate-400">
+                    <a href="{{ route('dashboard') }}" class="hover:text-emerald-600">Dashboard</a>
+                    <span aria-hidden="true">/</span>
+                    <span class="text-slate-600">Kasir</span>
+                </p>
                 <nav aria-label="Kategori produk" class="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6">
                     <template x-for="category in categories" :key="category.id">
                         <button
@@ -161,7 +193,7 @@
                     </template>
                 </nav>
 
-                <div class="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:min-h-0 lg:flex-1">
+                <div class="flex min-h-[360px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:min-h-0 lg:flex-1">
                     <div class="flex flex-col gap-4 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                         <label class="relative block w-full">
                             <span class="sr-only">Cari produk</span>
@@ -171,21 +203,21 @@
                                 placeholder="Cari nama produk..."
                                 class="w-full rounded-full border border-slate-200 bg-slate-50 py-2.5 pl-4 pr-11 text-sm text-slate-700 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-emerald-500"
                             >
-                            <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-emerald-700" aria-hidden="true">⌕</span>
+                            <x-heroicon-o-magnifying-glass class="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-emerald-700" aria-hidden="true" />
                         </label>
                     </div>
 
                     <div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
                         <div x-show="filteredProducts.length > 0" class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
                             <template x-for="product in filteredProducts" :key="product.id">
-                                <article class="group flex min-h-52 flex-col rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md sm:p-4">
+                                <article class="group flex min-h-52 flex-col rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md sm:p-4">
                                     <button
                                         type="button"
                                         @click="addToCart(product)"
                                         :disabled="product.stock < 1"
                                         class="flex flex-1 flex-col text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
-                                        <span class="relative flex h-28 w-full items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-emerald-50 via-slate-50 to-indigo-50 transition group-hover:scale-[1.02]">
+                                        <span class="relative flex h-28 w-full items-center justify-center overflow-hidden rounded-lg bg-slate-50 transition group-hover:scale-[1.02]">
                                             <template x-if="product.image">
                                                 <img :src="product.image" :alt="`Foto produk ${product.name}`" class="absolute inset-0 h-full w-full object-cover">
                                             </template>
@@ -221,7 +253,7 @@
                         </div>
 
                         <div x-show="filteredProducts.length === 0" class="flex min-h-64 flex-col items-center justify-center gap-3 text-center">
-                            <span class="text-4xl" aria-hidden="true">📦</span>
+                            <x-heroicon-o-archive-box class="h-10 w-10 text-slate-300" aria-hidden="true" />
                             <p class="font-semibold text-slate-700" x-text="products.length === 0 ? 'Katalog masih kosong' : 'Produk tidak ditemukan'"></p>
                             <p class="max-w-sm text-sm text-slate-500" x-text="products.length === 0 ? 'Tambahkan produk ke katalog agar bisa mulai berjualan.' : 'Coba kata kunci atau kategori yang berbeda.'"></p>
                             <a x-show="products.length === 0" href="{{ route('products.create') }}" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700">
@@ -232,61 +264,19 @@
                 </div>
             </section>
 
-            <aside class="flex min-w-0 flex-col gap-4 lg:col-span-4 lg:min-h-0">
-                <section class="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:min-h-0">
-                    <header class="border-b border-slate-100 px-5 py-4 text-center">
-                        <h2 class="text-lg font-extrabold text-slate-800">Checkout</h2>
-                        <p class="mt-1 text-xs text-slate-500"><span x-text="itemCount"></span> item dalam keranjang</p>
-                    </header>
-
-                    <div class="grid grid-cols-12 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500">
-                        <span class="col-span-6">Produk</span>
-                        <span class="col-span-3 text-center">Jumlah</span>
-                        <span class="col-span-3 text-right">Harga</span>
-                    </div>
-
-                    <div class="min-h-40 flex-1 divide-y divide-slate-100 overflow-y-auto">
-                        <template x-for="item in cart" :key="item.id">
-                            <article class="grid grid-cols-12 items-center gap-1 px-3 py-3 text-sm sm:px-4">
-                                <div class="col-span-6 flex min-w-0 items-center gap-2">
-                                    <button type="button" @click="removeItem(item)" :aria-label="`Hapus ${item.name}`" class="shrink-0 rounded p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600">
-                                        <span aria-hidden="true">×</span>
-                                    </button>
-                                    <div class="min-w-0">
-                                        <p class="truncate text-xs font-bold text-slate-700" x-text="item.name"></p>
-                                        <p class="text-[11px] text-slate-400" x-text="formatCurrency(item.price)"></p>
-                                    </div>
-                                </div>
-                                <div class="col-span-3 flex items-center justify-center gap-1">
-                                    <span class="w-5 text-center text-xs font-bold text-slate-800" x-text="item.qty"></span>
-                                </div>
-                                <span class="col-span-3 text-right text-xs font-bold text-slate-700" x-text="formatCurrency(item.price * item.qty)"></span>
-                            </article>
-                        </template>
-
-                        <div x-show="cart.length === 0" class="flex h-full min-h-48 flex-col items-center justify-center gap-2 px-6 text-center">
-                            <span class="text-3xl" aria-hidden="true">🛒</span>
-                            <p class="text-sm font-semibold text-slate-600">Keranjang masih kosong</p>
-                            <p class="text-xs text-slate-400">Pilih produk untuk memulai pesanan.</p>
-                        </div>
-                    </div>
-
-                    <div class="border-t border-slate-100 bg-slate-50/80 p-4 sm:p-5">
-                        <div class="flex items-center justify-between text-base font-extrabold">
-                            <span class="text-slate-800">Total</span>
-                            <span class="text-lg text-emerald-700" x-text="formatCurrency(total)"></span>
-                        </div>
-                    </div>
+            <aside class="hidden min-w-0 flex-col gap-4 lg:col-span-4 lg:flex lg:min-h-0">
+                <section class="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:min-h-0">
+                    @include('pos.partials.checkout-cart')
                 </section>
 
                 <div class="space-y-3">
                     <div x-show="notice" x-cloak role="status" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" x-text="notice"></div>
                     <div class="grid grid-cols-1 gap-3">
-                        <button type="button" @click="cart = []; notice = ''" :disabled="cart.length === 0" class="rounded-xl border border-red-300 bg-white px-4 py-3 text-sm font-bold text-red-600 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
+                        <button type="button" @click="cart = []; notice = ''" :disabled="cart.length === 0" class="rounded-lg border border-red-300 bg-white px-4 py-3 text-sm font-bold text-red-600 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
                             Batalkan
                         </button>
                     </div>
-                    <button type="button" @click="checkout()" :disabled="cart.length === 0 || isCheckingOut" class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-4 text-base font-extrabold text-white shadow-md transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                    <button type="button" @click="openPaymentModal()" :disabled="cart.length === 0 || isCheckingOut" class="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-4 text-base font-extrabold text-white shadow-md transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                         <span x-text="isCheckingOut ? 'Menyimpan transaksi...' : 'Proses pembayaran'"></span>
                         <span aria-hidden="true">·</span>
                         <span x-text="formatCurrency(total)"></span>
@@ -294,5 +284,142 @@
                 </div>
             </aside>
         </main>
+
+        <button
+            type="button"
+            @click="checkoutModalOpen = true"
+            :disabled="cart.length === 0"
+            class="fixed inset-x-4 bottom-4 z-30 flex items-center justify-between gap-3 rounded-2xl bg-emerald-600 px-5 py-4 text-white shadow-lg transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 lg:hidden"
+        >
+            <span class="flex items-center gap-2 text-sm font-bold">
+                <x-heroicon-o-shopping-cart class="h-5 w-5" aria-hidden="true" />
+                Checkout
+                <span x-show="itemCount > 0" x-cloak class="rounded-full bg-white/20 px-2 py-0.5 text-xs" x-text="itemCount"></span>
+            </span>
+            <span class="text-base font-extrabold" x-text="formatCurrency(total)"></span>
+        </button>
+
+        <div
+            x-show="checkoutModalOpen"
+            x-cloak
+            @keydown.escape.window="checkoutModalOpen = false"
+            @click.self="checkoutModalOpen = false"
+            class="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-4"
+            role="presentation"
+        >
+            <section
+                class="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-white shadow-md sm:rounded-lg"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Keranjang checkout"
+            >
+                <div class="min-h-0 flex-1 overflow-y-auto">
+                    @include('pos.partials.checkout-cart', ['closable' => true])
+                </div>
+
+                <div class="space-y-3 border-t border-slate-100 p-4 sm:p-5">
+                    <div x-show="notice" x-cloak role="status" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" x-text="notice"></div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            @click="cart = []; notice = ''"
+                            :disabled="cart.length === 0"
+                            class="rounded-lg border border-red-300 bg-white px-4 py-3 text-sm font-bold text-red-600 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >Batalkan</button>
+                        <button
+                            type="button"
+                            @click="openPaymentModal()"
+                            :disabled="cart.length === 0 || isCheckingOut"
+                            class="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <span x-text="isCheckingOut ? 'Menyimpan...' : 'Proses pembayaran'"></span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div
+            x-show="paymentModalOpen"
+            x-cloak
+            @keydown.escape.window="if (!isCheckingOut) paymentModalOpen = false"
+            @click.self="if (!isCheckingOut) paymentModalOpen = false"
+            class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4"
+            role="presentation"
+        >
+            <section
+                class="my-auto w-full max-w-md space-y-5 rounded-lg bg-white p-5 shadow-md sm:p-6"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="payment-modal-title"
+            >
+                <header class="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                        <h2 id="payment-modal-title" class="text-lg font-extrabold text-slate-800">Pembayaran</h2>
+                        <p class="mt-1 text-xs text-slate-500"><span x-text="itemCount"></span> item dalam pesanan</p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="paymentModalOpen = false"
+                        :disabled="isCheckingOut"
+                        aria-label="Tutup pembayaran"
+                        class="flex h-8 w-8 items-center justify-center rounded-full text-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed"
+                    >×</button>
+                </header>
+
+                <div class="flex items-center justify-between rounded-lg bg-emerald-50 px-4 py-3">
+                    <span class="text-sm font-semibold text-slate-700">Total pembayaran</span>
+                    <span class="text-lg font-extrabold text-emerald-700" x-text="formatCurrency(total)"></span>
+                </div>
+
+                <label class="block space-y-1.5">
+                    <span class="text-xs font-bold text-slate-600">Metode pembayaran</span>
+                    <select x-model="paymentMethod" class="w-full rounded-lg border-slate-200 bg-white text-sm text-slate-700 focus:border-emerald-500 focus:ring-emerald-500">
+                        <option value="cash">Tunai</option>
+                        <option value="qris">QRIS</option>
+                        <option value="transfer">Transfer</option>
+                    </select>
+                </label>
+
+                <div x-show="paymentMethod === 'cash'" class="space-y-2">
+                    <label class="block space-y-1.5">
+                        <span class="text-xs font-bold text-slate-600">Uang diterima (Rp)</span>
+                        <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            x-model="amountReceived"
+                            inputmode="numeric"
+                            placeholder="Masukkan nominal"
+                            class="w-full rounded-lg border-slate-200 text-sm text-slate-700 focus:border-emerald-500 focus:ring-emerald-500"
+                        >
+                    </label>
+                    <div class="flex items-center justify-between gap-3 text-xs">
+                        <button type="button" @click="amountReceived = String(Math.ceil(total))" class="font-bold text-emerald-700 hover:text-emerald-800">Uang pas</button>
+                        <span class="font-semibold text-slate-600">Kembalian: <span class="text-slate-800" x-text="formatCurrency(changeAmount)"></span></span>
+                    </div>
+                    <p x-show="amountReceived !== '' && Number(amountReceived) < total" class="text-xs text-red-600">Uang diterima belum mencukupi.</p>
+                </div>
+
+                <div x-show="notice" x-cloak role="alert" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" x-text="notice"></div>
+
+                <div class="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+                    <button
+                        type="button"
+                        @click="paymentModalOpen = false"
+                        :disabled="isCheckingOut"
+                        class="rounded-lg border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >Kembali</button>
+                    <button
+                        type="button"
+                        @click="checkout()"
+                        :disabled="!canCheckout"
+                        class="rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <span x-text="isCheckingOut ? 'Menyimpan...' : 'Konfirmasi pembayaran'"></span>
+                    </button>
+                </div>
+            </section>
+        </div>
     </div>
 </x-app-layout>

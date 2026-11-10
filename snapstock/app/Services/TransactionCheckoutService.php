@@ -14,9 +14,9 @@ class TransactionCheckoutService
     /**
      * @param  array<int, array{product_id: int, quantity: int}>  $items
      */
-    public function complete(User $user, array $items): Transaction
+    public function complete(User $user, array $items, string $paymentMethod, ?int $amountPaid): Transaction
     {
-        return DB::transaction(function () use ($user, $items): Transaction {
+        return DB::transaction(function () use ($user, $items, $paymentMethod, $amountPaid): Transaction {
             $productIds = collect($items)
                 ->pluck('product_id')
                 ->map(fn (int|string $productId): int => (int) $productId)
@@ -75,9 +75,26 @@ class TransactionCheckoutService
                 ];
             }
 
+            if ($paymentMethod === 'cash' && $amountPaid === null) {
+                throw ValidationException::withMessages([
+                    'amount_paid' => 'Masukkan jumlah uang yang diterima.',
+                ]);
+            }
+
+            $amountPaidCents = $paymentMethod === 'cash' ? $amountPaid * 100 : $totalCents;
+
+            if ($amountPaidCents < $totalCents) {
+                throw ValidationException::withMessages([
+                    'amount_paid' => 'Uang yang diterima kurang dari total pembayaran.',
+                ]);
+            }
+
             $transaction = $user->transactions()->create([
                 'total' => $this->fromCents($totalCents),
                 'status' => 'completed',
+                'payment_method' => $paymentMethod,
+                'amount_paid' => $this->fromCents($amountPaidCents),
+                'change_amount' => $this->fromCents($amountPaidCents - $totalCents),
             ]);
             $transaction->items()->createMany($transactionItems);
 

@@ -9,22 +9,22 @@
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=open-sans:400,500,600,700&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-slate-800 antialiased">
-        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-slate-50">
-            <div>
+        <div class="flex h-dvh flex-col bg-slate-50">
+            <div class="flex justify-center pt-5">
                 <a href="/">
-                    <x-application-logo class="w-20 h-20 fill-current text-emerald-600" />
+                    <x-application-logo class="block h-9 w-auto fill-current text-emerald-600" />
                 </a>
             </div>
 
-            <div class="w-full sm:max-w-md mt-6 px-6 py-4 bg-white shadow-md overflow-hidden sm:rounded-lg ring-1 ring-slate-200">
+            <main class="flex min-h-0 flex-1 flex-col px-4 pb-5">
                 {{ $slot }}
-            </div>
+            </main>
         </div>
     </body>
 </html>

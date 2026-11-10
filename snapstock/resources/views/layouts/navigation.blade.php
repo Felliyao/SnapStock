@@ -10,15 +10,16 @@
                     </a>
                 </div>
 
-                <!-- Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                        {{ __('Dashboard') }}
-                    </x-nav-link>
-                    <x-nav-link :href="route('transactions.index')" :active="request()->routeIs('transactions.index')">
-                        {{ __('Transactions') }}
-                    </x-nav-link>
-                </div>
+                @unless (request()->routeIs('dashboard'))
+                    <a
+                        href="{{ route('dashboard') }}"
+                        class="ms-3 inline-flex items-center gap-1.5 self-center rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+                        aria-label="Kembali ke Dashboard"
+                    >
+                        <x-heroicon-o-arrow-left class="h-4 w-4" aria-hidden="true" />
+                        <span class="hidden sm:inline">Dashboard</span>
+                    </a>
+                @endunless
             </div>
 
             <!-- Settings Dropdown -->
@@ -69,15 +70,6 @@
 
     <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
-        <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                {{ __('Dashboard') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('transactions.index')" :active="request()->routeIs('transactions.index')">
-                {{ __('Transactions') }}
-            </x-responsive-nav-link>
-        </div>
-
         <!-- Responsive Settings Options -->
         <div class="pt-4 pb-1 border-t border-emerald-100">
             <div class="px-4">

@@ -10,6 +10,14 @@
                 'time' => $transaction->created_at->format('H:i'),
                 'status' => $transaction->status,
                 'total' => (float) $transaction->total,
+                'paymentMethod' => match ($transaction->payment_method) {
+                    'cash' => 'Tunai',
+                    'qris' => 'QRIS',
+                    'transfer' => 'Transfer',
+                    default => null,
+                },
+                'amountPaid' => $transaction->amount_paid !== null ? (float) $transaction->amount_paid : null,
+                'changeAmount' => $transaction->change_amount !== null ? (float) $transaction->change_amount : null,
                 'items' => $transaction->items->map(fn ($item) => [
                     'name' => $item->product_name,
                     'qty' => $item->quantity,
@@ -54,6 +62,11 @@
         }"
     >
         <div class="mx-auto max-w-[1400px] space-y-6 px-4 sm:px-6 lg:px-8">
+            <p class="text-xs font-medium text-slate-400">
+                <a href="{{ route('dashboard') }}" class="hover:text-emerald-600">Dashboard</a>
+                <span aria-hidden="true">/</span>
+                <span class="text-slate-600">Transaksi</span>
+            </p>
             <div class="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-center">
                 <div class="flex items-center gap-3">
                     <h1 class="text-3xl font-extrabold tracking-tight text-slate-800">Transaksi</h1>
@@ -70,7 +83,7 @@
                             x-model="searchQuery"
                             placeholder="Cari nomor transaksi atau produk..."
                             aria-label="Cari nomor transaksi atau produk"
-                            class="w-full rounded-xl border border-slate-200 bg-white py-2 pl-4 pr-10 text-xs text-slate-700 placeholder-slate-400 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                            class="w-full rounded-lg border border-slate-200 bg-white py-2 pl-4 pr-10 text-xs text-slate-700 placeholder-slate-400 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                         >
                         <svg class="absolute right-3 top-2.5 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                             <circle cx="11" cy="11" r="7" stroke-width="2"></circle>
@@ -78,7 +91,7 @@
                         </svg>
                     </div>
 
-                    <div class="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500 shadow-sm xl:flex">
+                    <div class="hidden items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500 shadow-sm xl:flex">
                         <svg class="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                             <rect x="3" y="5" width="18" height="16" rx="2" stroke-width="2"></rect>
                             <path d="M16 3v4M8 3v4M3 11h18" stroke-width="2" stroke-linecap="round"></path>
@@ -88,13 +101,19 @@
                 </div>
             </div>
 
+            @if (session('status'))
+                <div role="status" class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 shadow-sm">
+                    {{ session('status') }}
+                </div>
+            @endif
+
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <template x-for="transaction in filteredTransactions" :key="transaction.id">
-                    <article class="flex flex-col justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:shadow-md">
+                    <article class="flex flex-col justify-between gap-4 rounded-lg border border-slate-100 bg-white p-5 shadow-sm transition hover:shadow-md">
                         <div class="space-y-3 border-b border-slate-100 pb-3">
                             <div class="flex items-center justify-between gap-3">
                                 <div class="flex min-w-0 items-center gap-3">
-                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-xs font-bold text-white shadow-sm">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-700 text-xs font-bold text-white shadow-sm">
                                         TR
                                     </div>
                                     <div class="min-w-0">
@@ -111,6 +130,10 @@
                             <div class="flex items-center justify-between pt-1 text-[11px] font-medium text-slate-400">
                                 <span x-text="transaction.date"></span>
                                 <span x-text="transaction.time"></span>
+                            </div>
+                            <div x-show="transaction.paymentMethod" class="flex items-center justify-between text-[11px] font-medium">
+                                <span class="text-slate-400">Metode pembayaran</span>
+                                <span class="font-bold text-slate-600" x-text="transaction.paymentMethod"></span>
                             </div>
                         </div>
 
@@ -151,14 +174,14 @@
                                 <button
                                     type="button"
                                     @click="printTransaction()"
-                                    class="rounded-xl border border-sky-200 bg-sky-50 px-2 py-2 text-center text-[10px] font-bold text-sky-700 transition hover:bg-sky-100"
+                                    class="rounded-lg border border-sky-200 bg-sky-50 px-2 py-2 text-center text-[10px] font-bold text-sky-700 transition hover:bg-sky-100"
                                 >
                                     Cetak
                                 </button>
                                 <button
                                     type="button"
                                     @click="showDetails(transaction)"
-                                    class="rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-2 text-center text-[10px] font-bold text-emerald-700 transition hover:bg-emerald-100"
+                                    class="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-2 text-center text-[10px] font-bold text-emerald-700 transition hover:bg-emerald-100"
                                 >
                                     Detail
                                 </button>
@@ -170,7 +193,7 @@
 
             <div
                 x-show="filteredTransactions.length === 0"
-                class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center"
+                class="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center"
                 style="display: none;"
             >
                 <p class="font-semibold text-slate-700">
@@ -193,7 +216,7 @@
             >
                 <section
                     @click.outside="selectedOrder = null"
-                    class="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-xl"
+                    class="w-full max-w-lg space-y-4 rounded-lg bg-white p-6 shadow-md"
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="transaction-detail-title"
@@ -234,18 +257,47 @@
                                 </template>
                             </div>
 
-                            <div class="flex items-center justify-between rounded-xl bg-slate-50 p-3 text-sm font-extrabold text-slate-800">
+                            <div x-show="selectedOrder.paymentMethod" class="space-y-2 border-t border-slate-100 pt-3 text-xs">
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="text-slate-500">Metode pembayaran</span>
+                                    <span class="font-bold text-slate-700" x-text="selectedOrder.paymentMethod"></span>
+                                </div>
+                                <div x-show="selectedOrder.paymentMethod === 'Tunai'" class="flex items-center justify-between gap-3">
+                                    <span class="text-slate-500">Uang diterima</span>
+                                    <span class="font-semibold text-slate-700" x-text="formatCurrency(selectedOrder.amountPaid)"></span>
+                                </div>
+                                <div x-show="selectedOrder.paymentMethod === 'Tunai'" class="flex items-center justify-between gap-3">
+                                    <span class="text-slate-500">Kembalian</span>
+                                    <span class="font-semibold text-slate-700" x-text="formatCurrency(selectedOrder.changeAmount)"></span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between rounded-lg bg-slate-50 p-3 text-sm font-extrabold text-slate-800">
                                 <span>Total Pembayaran:</span>
                                 <span class="text-base text-emerald-600" x-text="formatCurrency(selectedOrder.total)"></span>
                             </div>
                         </div>
                     </template>
 
-                    <div class="flex justify-end border-t border-slate-100 pt-3">
+                    <div class="flex items-center justify-between border-t border-slate-100 pt-3">
+                        <form
+                            method="POST"
+                            :action="'{{ url('/transactions') }}/' + (selectedOrder ? selectedOrder.id : '')"
+                            @submit="return confirm('Hapus transaksi ini? Stok produk akan dikembalikan.')"
+                        >
+                            @csrf
+                            @method('DELETE')
+                            <button
+                                type="submit"
+                                class="rounded-lg bg-red-50 px-4 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+                            >
+                                Hapus
+                            </button>
+                        </form>
                         <button
                             type="button"
                             @click="selectedOrder = null"
-                            class="rounded-xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                            class="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
                         >
                             Tutup
                         </button>

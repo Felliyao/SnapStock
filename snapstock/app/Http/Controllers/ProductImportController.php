@@ -20,7 +20,7 @@ class ProductImportController extends Controller
     {
         return response()->streamDownload(function (): void {
             $stream = fopen('php://output', 'wb');
-            fputcsv($stream, ['name', 'category', 'description', 'price', 'stock', 'unit'], ',', '"', '');
+            fputcsv($stream, ['name', 'category', 'price', 'stock', 'unit'], ',', '"', '');
             fclose($stream);
         }, 'products-template.csv', [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -37,6 +37,7 @@ class ProductImportController extends Controller
         return view('products.create', [
             'rows' => $rows,
             'invalidCount' => collect($rows)->filter(fn (array $row): bool => $row['errors'] !== [])->count(),
+            'rawMaterials' => $request->user()->rawMaterials()->orderBy('name')->get(['id', 'name', 'unit']),
         ]);
     }
 

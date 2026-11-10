@@ -44,6 +44,8 @@ class TransactionTest extends TestCase
 
         $response = $this->actingAs($user)
             ->postJson(route('transactions.store'), [
+                'payment_method' => 'cash',
+                'amount_paid' => 30000,
                 'total' => '1.00',
                 'items' => [
                     [
@@ -65,6 +67,9 @@ class TransactionTest extends TestCase
             'user_id' => $user->id,
             'total' => '25001.00',
             'status' => 'completed',
+            'payment_method' => 'cash',
+            'amount_paid' => '30000.00',
+            'change_amount' => '4999.00',
         ]);
         $this->assertDatabaseHas('transaction_items', [
             'transaction_id' => $transaction->id,
@@ -85,7 +90,76 @@ class TransactionTest extends TestCase
             ->assertOk()
             ->assertSee('Kopi Susu')
             ->assertSee('Transaksi #')
-            ->assertSee('25001');
+            ->assertSee('25001')
+            ->assertSee('Tunai');
+    }
+
+    public function test_qris_checkout_records_the_payment_amount_and_is_shown_in_history(): void
+    {
+        $user = User::factory()->create();
+        $product = $user->products()->create([
+            'name' => 'Teh Lemon',
+            'price' => 7000,
+            'stock' => 4,
+            'unit' => 'cup',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('transactions.store'), [
+                'payment_method' => 'qris',
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'quantity' => 2,
+                    ],
+                ],
+            ])
+            ->assertCreated();
+
+        $transaction = Transaction::query()->firstOrFail();
+        $this->assertDatabaseHas('transactions', [
+            'id' => $transaction->id,
+            'payment_method' => 'qris',
+            'total' => '14000.00',
+            'amount_paid' => '14000.00',
+            'change_amount' => '0.00',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('transactions.index'))
+            ->assertOk()
+            ->assertSee('QRIS (simulasi)');
+    }
+
+    public function test_checkout_rejects_cash_payment_below_total_without_saving_transaction(): void
+    {
+        $user = User::factory()->create();
+        $product = $user->products()->create([
+            'name' => 'Roti',
+            'price' => 10000,
+            'stock' => 3,
+            'unit' => 'pcs',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('transactions.store'), [
+                'payment_method' => 'cash',
+                'amount_paid' => 9999,
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'quantity' => 1,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['amount_paid']);
+
+        $this->assertDatabaseCount('transactions', 0);
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'stock' => 3,
+        ]);
     }
 
     public function test_checkout_rejects_insufficient_stock_without_saving_or_changing_stock(): void
@@ -100,6 +174,8 @@ class TransactionTest extends TestCase
 
         $this->actingAs($user)
             ->postJson(route('transactions.store'), [
+                'payment_method' => 'cash',
+                'amount_paid' => 16000,
                 'items' => [
                     [
                         'product_id' => $product->id,
@@ -131,6 +207,8 @@ class TransactionTest extends TestCase
 
         $this->actingAs($user)
             ->postJson(route('transactions.store'), [
+                'payment_method' => 'cash',
+                'amount_paid' => 10000,
                 'items' => [
                     [
                         'product_id' => $product->id,
@@ -182,5 +260,59 @@ class TransactionTest extends TestCase
             ->assertSee('12000')
             ->assertDontSee('Transaksi Rahasia')
             ->assertDontSee('99000');
+    }
+
+    public function test_user_can_delete_a_transaction_and_stock_is_restored(): void
+    {
+        $user = User::factory()->create();
+        $product = $user->products()->create([
+            'name' => 'Kopi Susu',
+            'price' => 12500,
+            'stock' => 8,
+            'unit' => 'cup',
+        ]);
+        $transaction = $user->transactions()->create([
+            'total' => 25000,
+            'status' => 'completed',
+            'payment_method' => 'cash',
+            'amount_paid' => 30000,
+            'change_amount' => 5000,
+        ]);
+        $transaction->items()->create([
+            'product_id' => $product->id,
+            'product_name' => 'Kopi Susu',
+            'unit' => 'cup',
+            'quantity' => 2,
+            'unit_price' => 12500,
+            'subtotal' => 25000,
+        ]);
+
+        $this->actingAs($user)
+            ->delete(route('transactions.destroy', $transaction))
+            ->assertRedirect(route('transactions.index'))
+            ->assertSessionHas('status', 'Transaksi berhasil dihapus.');
+
+        $this->assertDatabaseMissing('transactions', ['id' => $transaction->id]);
+        $this->assertDatabaseCount('transaction_items', 0);
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'stock' => 10,
+        ]);
+    }
+
+    public function test_user_cannot_delete_another_users_transaction(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $transaction = $otherUser->transactions()->create([
+            'total' => 12000,
+            'status' => 'completed',
+        ]);
+
+        $this->actingAs($user)
+            ->delete(route('transactions.destroy', $transaction))
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('transactions', ['id' => $transaction->id]);
     }
 }

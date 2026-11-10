@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ProductAiTest extends TestCase
@@ -25,7 +26,7 @@ class ProductAiTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->get(route('products.create'))
             ->assertOk()
-            ->assertSee('Buat Katalog Produk')
+            ->assertSee('Buat katalog produk')
             ->assertSee('Foto produk, kemasan, atau nota')
             ->assertSee('Simpan katalog');
     }
@@ -47,7 +48,6 @@ class ProductAiTest extends TestCase
                                     [
                                         'name' => 'Donat Cokelat',
                                         'category' => 'Donat',
-                                        'description' => 'Donat dengan isian cokelat.',
                                         'price' => 35000,
                                         'stock' => 20,
                                         'unit' => 'box',
@@ -129,7 +129,6 @@ class ProductAiTest extends TestCase
                                     [
                                         'name' => 'Tepung Terigu',
                                         'category' => 'Bahan Baku',
-                                        'description' => 'Tepung terigu 1 kilogram.',
                                         'price' => 14000,
                                         'stock' => 10,
                                         'unit' => 'pcs',
@@ -188,7 +187,6 @@ class ProductAiTest extends TestCase
                     [
                         'name' => 'Donat Cokelat',
                         'category' => 'Donat',
-                        'description' => 'Donat dengan isian cokelat.',
                         'price' => 35000,
                         'stock' => 20,
                         'unit' => 'box',
@@ -203,7 +201,6 @@ class ProductAiTest extends TestCase
             'user_id' => $user->id,
             'name' => 'Donat Cokelat',
             'category' => 'Donat',
-            'description' => 'Donat dengan isian cokelat.',
             'price' => 35000,
             'stock' => 20,
             'unit' => 'box',
@@ -213,8 +210,7 @@ class ProductAiTest extends TestCase
         $this->actingAs($user)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Donat Cokelat')
-            ->assertSee('Donat dengan isian cokelat.');
+            ->assertSee('Donat Cokelat');
     }
 
     public function test_ai_catalog_save_validates_products_before_persisting(): void
@@ -234,8 +230,6 @@ class ProductAiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
                 'products.0.name',
-                'products.0.category',
-                'products.0.description',
                 'products.0.price',
                 'products.0.stock',
                 'products.0.unit',
@@ -254,7 +248,6 @@ class ProductAiTest extends TestCase
                     [
                         'name' => 'Produk AI',
                         'category' => 'Makanan',
-                        'description' => 'Produk yang dibuat dengan AI.',
                         'price' => 10000,
                         'stock' => 2,
                         'unit' => 'pcs',
@@ -267,6 +260,49 @@ class ProductAiTest extends TestCase
             'user_id' => $user->id,
             'name' => 'Produk AI',
             'image_path' => null,
+        ]);
+    }
+
+    public function test_user_can_save_ai_products_with_a_photo_and_raw_materials(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $rawMaterial = $user->rawMaterials()->create([
+            'name' => 'Tepung Terigu',
+            'stock' => 10,
+            'unit' => 'kg',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('products.ai-store'), [
+                'products' => [
+                    [
+                        'name' => 'Donat Cokelat',
+                        'category' => 'Donat',
+                        'price' => '35000',
+                        'stock' => '20',
+                        'unit' => 'box',
+                        'image' => UploadedFile::fake()->image('donat.jpg'),
+                        'raw_materials' => [
+                            [
+                                'raw_material_id' => $rawMaterial->id,
+                                'quantity_per_product' => '0.125',
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('message', 'Katalog berhasil disimpan.');
+
+        $product = $user->products()->firstOrFail();
+
+        $this->assertNotNull($product->image_path);
+        Storage::disk('public')->assertExists($product->image_path);
+        $this->assertDatabaseHas('product_raw_material', [
+            'product_id' => $product->id,
+            'raw_material_id' => $rawMaterial->id,
+            'quantity_per_product' => '0.125',
         ]);
     }
 }

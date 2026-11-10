@@ -5,8 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['user_id', 'name', 'category', 'description', 'price', 'stock', 'unit', 'image_path'])]
+#[Fillable(['user_id', 'name', 'category', 'price', 'stock', 'unit', 'image_path'])]
 class Product extends Model
 {
     protected function casts(): array
@@ -20,5 +21,12 @@ class Product extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function rawMaterials(): BelongsToMany
+    {
+        return $this->belongsToMany(RawMaterial::class)
+            ->withPivot('quantity_per_product')
+            ->withTimestamps();
     }
 }

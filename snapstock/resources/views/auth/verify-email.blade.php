@@ -1,4 +1,6 @@
 <x-guest-layout>
+    <div class="flex flex-1 items-center justify-center">
+        <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-md ring-1 ring-slate-200 sm:p-8">
     <div class="mb-4 text-sm text-slate-600">
         {{ __('Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn\'t receive the email, we will gladly send you another.') }}
     </div>
@@ -27,5 +29,7 @@
                 {{ __('Log Out') }}
             </button>
         </form>
+    </div>
+        </div>
     </div>
 </x-guest-layout>
