@@ -45,6 +45,10 @@ Route::put('/products/{product}', [ProductController::class, 'update'])
     ->middleware(['auth', 'verified'])
     ->name('products.update');
 
+Route::delete('/products/{product}', [ProductController::class, 'destroy'])
+    ->middleware(['auth', 'verified'])
+    ->name('products.destroy');
+
 Route::post('/products/stock', [ProductController::class, 'restock'])
     ->middleware(['auth', 'verified', 'throttle:30,1'])
     ->name('products.stock.store');

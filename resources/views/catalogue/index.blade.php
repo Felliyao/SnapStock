@@ -220,7 +220,7 @@
                         <p class="shrink-0 text-xs text-slate-500"><span class="font-bold text-slate-700" x-text="filteredProducts.length"></span> produk</p>
                     </div>
                     <div class="min-h-0 flex-1 overflow-y-auto pb-4 [scrollbar-width:none] [mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)] [&::-webkit-scrollbar]:hidden">
-                    <div x-show="filteredProducts.length > 0" class="grid grid-cols-1 gap-3 pb-2 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
+                    <div x-show="filteredProducts.length > 0" class="grid grid-cols-1 gap-3 pb-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
                         <template x-for="product in filteredProducts" :key="product.id">
                             <article class="group flex min-h-56 flex-col overflow-hidden rounded-lg border border-slate-100 bg-white shadow-sm transition hover:border-indigo-200 hover:shadow-md sm:min-h-72">
                                 <div class="relative flex h-28 items-center justify-center overflow-hidden bg-slate-50 sm:h-40">
@@ -250,12 +250,26 @@
 
                                     <div class="flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5 sm:pt-3">
                                         <span class="text-xs font-extrabold text-slate-800 sm:text-sm" x-text="formatCurrency(product.price)"></span>
-                                        <a
-                                            :href="product.editUrl"
-                                            class="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-center text-[11px] font-bold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 sm:px-3 sm:py-2 sm:text-xs"
-                                        >
-                                            Edit produk
-                                        </a>
+                                        <div class="flex items-center gap-1.5">
+                                            <a
+                                                :href="product.editUrl"
+                                                class="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-center text-[11px] font-bold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 sm:px-3 sm:py-2 sm:text-xs"
+                                            >
+                                                Edit produk
+                                            </a>
+                                            <form method="POST" :action="product.deleteUrl" @submit="return confirm('Hapus produk ini?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button
+                                                    type="submit"
+                                                    class="rounded-lg border border-red-200 p-1.5 text-red-500 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                                                    title="Hapus produk"
+                                                    aria-label="Hapus produk"
+                                                >
+                                                    <x-heroicon-o-trash class="h-4 w-4" aria-hidden="true" />
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
                             </article>

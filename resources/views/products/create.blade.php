@@ -425,7 +425,7 @@
                         rows="4"
                         maxlength="2000"
                         class="w-full rounded-lg border-slate-300 p-4 text-sm text-slate-800 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        placeholder="Contoh: Saya jual donat cokelat seharga Rp35.000, stok 20 box. Tambahkan juga donat stroberi seharga Rp38.000, stok 15 box."
+                        placeholder="Tulis nama produk, kategori, harga, stok, dan satuan produk. Contoh: Saya jual donat cokelat seharga Rp35.000, stok 20 box. Tambahkan juga donat stroberi seharga Rp38.000, stok 15 box."
                     ></textarea>
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="text-xs font-medium text-slate-500">Contoh:</span>

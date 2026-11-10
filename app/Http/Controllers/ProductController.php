@@ -76,6 +76,7 @@ class ProductController extends Controller
                     'quantity' => (string) $material->pivot->quantity_per_product,
                 ])->values(),
                 'editUrl' => route('products.edit', $product),
+                'deleteUrl' => route('products.destroy', $product),
                 'image' => $product->image_path === null
                     ? null
                     : Storage::disk('public')->url($product->image_path),
@@ -328,6 +329,20 @@ class ProductController extends Controller
         }
 
         return redirect()->route('catalogue.index')->with('status', 'Produk berhasil diperbarui.');
+    }
+
+    public function destroy(Request $request, int $product): RedirectResponse
+    {
+        $product = $request->user()->products()->whereKey($product)->firstOrFail();
+        $imagePath = $product->image_path;
+
+        $product->delete();
+
+        if ($imagePath !== null) {
+            Storage::disk('public')->delete($imagePath);
+        }
+
+        return redirect()->route('catalogue.index')->with('status', 'Produk berhasil dihapus.');
     }
 
     public function restock(Request $request, ProductProductionService $production): RedirectResponse

@@ -21,7 +21,7 @@
             selectedRawMaterial: @js($rawMaterials->first()?->id ?? null),
             qty: 1,
             materialQty: 1,
-            stokTab: @js(old('stock_action') === 'create_material' ? 'new-material' : 'produk'),
+            stokTab: @js(old('stock_action') === 'restock' ? 'produk' : 'new-material'),
             bahanMode: 'manual',
             targetBahan: 'Tepung Terigu Segitiga Biru 1kg',
             stokBahanSaatIni: 1.5,
@@ -181,6 +181,13 @@
 
                 <div class="flex border-b border-slate-200">
                     <button
+                        @click="stokTab = 'new-material'"
+                        :class="stokTab === 'new-material' ? 'border-amber-600 text-amber-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                        class="flex-1 border-b-2 pb-2 text-center text-xs transition sm:text-sm"
+                    >
+                        + Bahan Baru
+                    </button>
+                    <button
                         @click="stokTab = 'produk'"
                         :class="stokTab === 'produk' ? 'border-amber-600 text-amber-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'"
                         class="flex-1 border-b-2 pb-2 text-center text-xs transition sm:text-sm"
@@ -193,13 +200,6 @@
                         class="flex-1 border-b-2 pb-2 text-center text-xs transition sm:text-sm"
                     >
                         <x-heroicon-o-fire class="mr-1 inline h-3.5 w-3.5 align-[-0.125em]" aria-hidden="true" />Restock Bahan
-                    </button>
-                    <button
-                        @click="stokTab = 'new-material'"
-                        :class="stokTab === 'new-material' ? 'border-amber-600 text-amber-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'"
-                        class="flex-1 border-b-2 pb-2 text-center text-xs transition sm:text-sm"
-                    >
-                        + Bahan Baru
                     </button>
                 </div>
 
@@ -382,13 +382,13 @@
                     <div class="space-y-3">
                         <div>
                             <label for="new-material-name" class="mb-1 block text-sm font-medium text-slate-800">Nama Bahan Baku:</label>
-                            <input id="new-material-name" type="text" name="name" value="{{ old('stock_action') === 'create_material' ? old('name') : '' }}" maxlength="255" required class="w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500" placeholder="Contoh: Tepung Terigu Protein Tinggi">
+                            <input id="new-material-name" type="text" name="name" value="{{ old('stock_action') === 'create_material' ? old('name') : '' }}" maxlength="255" required class="w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500" placeholder="Contoh: Tepung Terigu Protein ">
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label for="new-material-category" class="mb-1 block text-sm font-medium text-slate-800">Kategori:</label>
-                                <input id="new-material-category" type="text" name="category" value="{{ old('stock_action') === 'create_material' ? old('category') : '' }}" maxlength="100" class="w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500" placeholder="Contoh: Tepung & Pati">
+                                <input id="new-material-category" type="text" name="category" value="{{ old('stock_action') === 'create_material' ? old('category') : '' }}" maxlength="100" class="w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500" placeholder="Contoh: Tepung">
                             </div>
                             <div>
                                 <label for="new-material-location" class="mb-1 block text-sm font-medium text-slate-800">Lokasi:</label>
